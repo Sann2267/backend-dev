@@ -1,18 +1,23 @@
-from flask import Flask, jsonify, render_template, request
+from flask import Flask, jsonify, request, render_template
 import boto3
 import time
 import os
 from groq import Groq
 
-app = Flask(__name__)
+app = Flask(__name__, template_folder='templates')
 
-# Inisialisasi Klien AWS Athena & Groq AI
+# Inisialisasi Klien AWS Athena
 athena_client = boto3.client('athena', region_name='ap-southeast-2')
 
-# Ambil API Key Groq dari Environment Variable (Aman & Standar Cloud)
-# Saat latihan/lomba, Anda bisa set via: export GROQ_API_KEY="gsk_xxxx" atau taruh di Docker env
-GROQ_API_KEY = os.environ.get("GROQ_API_KEY") 
-groq_client = Groq(api_key=GROQ_API_KEY)
+# Ambil API Key dari environment variable secara aman
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
+
+# Validasi pengaman agar kontainer TIDAK CRASH jika kredensial belum siap
+if GROQ_API_KEY:
+    groq_client = Groq(api_key=GROQ_API_KEY)
+else:
+    groq_client = None
+    print("⚠️ PERINGATAN: GROQ_API_KEY tidak dikonfigurasi di lingkungan server!")
 
 # Konstanta Athena
 DATABASE = 'default'
@@ -34,7 +39,7 @@ def run_athena_query(query_string):
     while True:
         status_response = athena_client.get_query_execution(QueryExecutionId=query_execution_id)
         status = status_response['QueryExecution']['Status']['State']
-        if status in ['SUCCEEDED', 'FAILED', 'CANCELLED']:\
+        if status in ['SUCCEEDED', 'FAILED', 'CANCELLED']:
             break
         time.sleep(1)
 
@@ -45,7 +50,6 @@ def run_athena_query(query_string):
     return parse_athena_results(results)
 
 def parse_athena_results(results):
-    # Standardisasi nama kolom menjadi huruf kecil semua agar JavaScript tidak bingung
     columns = [col['Label'].lower() for col in results['ResultSet']['ResultSetMetadata']['ColumnInfo']]
     parsed_data = []
     
@@ -58,7 +62,8 @@ def parse_athena_results(results):
     return parsed_data
 
 def dapatkan_analisis_groq(item, amount, location):
-    """Fungsi untuk melakukan inferensi ke Llama3 melalui Groq API jika data di S3 kosong"""
+    if not groq_client:
+        return "Analisis AI dilewati: Kunci API belum siap"
     try:
         prompt = f"""
         Analisis transaksi e-commerce berikut secara singkat (maksimal 10 kata) mengapa dikategorikan FRAUD/Mencurigakan:
@@ -67,14 +72,8 @@ def dapatkan_analisis_groq(item, amount, location):
         Lokasi: {location}
         Berikan jawaban langsung pada poin intinya tanpa kata pengantar.
         """
-        
         chat_completion = groq_client.chat.completions.create(
-            messages=[
-                {
-                    "role": "user",
-                    "content": prompt,
-                }
-            ],
+            messages=[{"role": "user", "content": prompt}],
             model="llama3-8b-8192",
             max_tokens=30,
             temperature=0.2
@@ -83,13 +82,12 @@ def dapatkan_analisis_groq(item, amount, location):
     except Exception as e:
         return f"Analisis AI gagal: {str(e)}"
 
+# 1. RUTE UTAMA: Merender Dashboard HTML
 @app.route('/', methods=['GET'])
 def index_dashboard():
-    try:
-        return render_template('dashboard.html')
-    except Exception as e:
-        return f"Template Error: {str(e)}", 500
+    return render_template('dashboard.html')
 
+# 2. RUTE API: Ambil Semua Data Transaksi
 @app.route('/api/transactions', methods=['GET'])
 def get_all_transactions():
     if not periksa_api_key():
@@ -99,10 +97,8 @@ def get_all_transactions():
         query = f"SELECT * FROM {TABLE} LIMIT 50;"
         data = run_athena_query(query)
         
-        # Integrasi Dinamis Groq AI untuk kolom fraud_reason yang kosong
         for tx in data:
             is_fraud = tx.get('is_fraud') == 'true' or tx.get('is_fraud') == True
-            # Jika transaksi terindikasi fraud dan alasan AI di DB kosong/null, panggil Groq
             if is_fraud and (not tx.get('fraud_reason') or tx.get('fraud_reason') == '-'):
                 tx['fraud_reason'] = dapatkan_analisis_groq(
                     tx.get('item', '-'), 
@@ -114,13 +110,13 @@ def get_all_transactions():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
+# 3. RUTE API: Ambil Statistik Fraud Agregasi (Nama Fungsi Diubah ke get_fraud_stats)
 @app.route('/api/fraud-stats', methods=['GET'])
 def get_fraud_stats():
     if not periksa_api_key():
         return jsonify({"status": "error", "message": "Unauthorized: API Key tidak valid"}), 401
 
     try:
-        # Gunakan fungsi agregasi LOWER pada alias kolom untuk mempermudah JavaScript membaca properti objek
         query = f"""
             SELECT 
                 is_fraud, 
@@ -134,6 +130,7 @@ def get_fraud_stats():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
+# 4. RUTE API: Health Check
 @app.route('/health', methods=['GET'])
 def health_check():
     return jsonify({"status": "healthy"}), 200
