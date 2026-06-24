@@ -56,20 +56,19 @@ jobs:
           script: |
             # 1. Login ke GHCR menggunakan sudo
             echo "${{ secrets.GITHUB_TOKEN }}" | sudo docker login ghcr.io -u ${{ github.actor }} --password-stdin
-            
+
             # 2. Hentikan dan hapus kontainer lama jika ada
             sudo docker stop backend-api || true
             sudo docker rm backend-api || true
-            
+
             # 3. Ambil image kontainer terbaru dari GHCR
             sudo docker pull ghcr.io/sann2267/backend-dev:latest
-            
-            # Jalankan kontainer baru di port 80 dengan mengoper token API Groq
-            IMG="ghcr.io/sann2267/backend-dev:latest"
-            sudo docker run -d -p 80:5000 --name backend-api --restart always -e AWS_DEFAULT_REGION=ap-southeast-2 -e GROQ_API_KEY="${{ secrets.GROQ_API_KEY }}" $IMG
+
+            # 4. Jalankan kontainer baru dengan memecah argumen ke bawah secara aman
+            sudo docker run -d \
               -p 80:5000 \
               --name backend-api \
               --restart always \
               -e AWS_DEFAULT_REGION=ap-southeast-2 \
-              -e GROQ_API_KEY="${{ secrets.GROQ_API_KEY }}"
+              -e GROQ_API_KEY="${{ secrets.GROQ_API_KEY }}" \
               ghcr.io/sann2267/backend-dev:latest
