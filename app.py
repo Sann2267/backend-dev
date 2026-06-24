@@ -19,7 +19,7 @@ except Exception as e:
 
 DATABASE = 'default'
 TABLE = 'lks_transactions'
-S3_OUTPUT = 's3://raw-transactions-lks2026/athena-results/'
+S3_OUTPUT = 's3://raw-transactions-lks2026/raw-transactions/'
 
 def run_athena_query(query_string):
     if not athena_client:
