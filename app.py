@@ -77,11 +77,19 @@ def get_all_transactions():
 
 @app.route('/api/fraud-stats', methods=['GET'])
 def get_fraud_stats():
-    if not check_api_key():
+    if not periksa_api_key():
         return jsonify({"status": "error", "message": "Unauthorized: API Key salah atau tidak ditemukan"}), 401
 
     try:
-        query = f"SELECT is_fraud, COUNT(transaction_id) as total_cases, SUM(amount) as total_amount FROM {TABLE} GROUP BY is_fraud;"
+        # Memberikan alias huruf kecil yang konsisten agar mudah dibaca oleh JavaScript
+        query = f"""
+            SELECT 
+                is_fraud, 
+                COUNT(transaction_id) as total_cases, 
+                SUM(amount) as total_amount 
+            FROM {TABLE} 
+            GROUP BY is_fraud;
+        """
         data = run_athena_query(query)
         return jsonify({"status": "success", "data": data}), 200
     except Exception as e:
