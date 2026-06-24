@@ -85,8 +85,8 @@ def get_all_transactions():
         
         for tx in data:
             is_fraud = tx.get('is_fraud') == 'true' or tx.get('is_fraud') == True
-            if is_fraud and (not tx.get('fraud_reason') or tx.get('fraud_reason') == '-'):
-                tx['fraud_reason'] = dapatkan_analisis_groq(
+            if is_fraud and (not tx.get('reason') or tx.get('reason') == '-'):
+                tx['reason'] = dapatkan_analisis_groq(
                     tx.get('item', '-'), 
                     tx.get('amount', '0'), 
                     tx.get('location', '-')
