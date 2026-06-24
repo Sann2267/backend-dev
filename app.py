@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, render_template, request
 import boto3
 import time
 import os
@@ -82,6 +82,13 @@ def dapatkan_analisis_groq(item, amount, location):
         return chat_completion.choices[0].message.content.strip()
     except Exception as e:
         return f"Analisis AI gagal: {str(e)}"
+
+@app.route('/', methods=['GET'])
+def index_dashboard():
+    try:
+        return render_template('dashboard.html')
+    except Exception as e:
+        return f"Template Error: {str(e)}", 500
 
 @app.route('/api/transactions', methods=['GET'])
 def get_all_transactions():
