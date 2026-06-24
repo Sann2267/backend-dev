@@ -65,7 +65,8 @@ jobs:
             sudo docker pull ghcr.io/sann2267/backend-dev:latest
             
             # Jalankan kontainer baru di port 80 dengan mengoper token API Groq
-            sudo docker run -d \
+            IMG="ghcr.io/sann2267/backend-dev:latest"
+            sudo docker run -d -p 80:5000 --name backend-api --restart always -e AWS_DEFAULT_REGION=ap-southeast-2 -e GROQ_API_KEY="${{ secrets.GROQ_API_KEY }}" $IMG
               -p 80:5000 \
               --name backend-api \
               --restart always \
