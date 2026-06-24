@@ -94,7 +94,7 @@
 
             // 2. Ambil Data Statistik Agregasi
             const resStats = await fetch('/api/fraud-stats', { headers: { 'x-api-key': apiKey } });
-            const jsonStats = await resStats.get_json();
+            const jsonStats = await resStats.json();
             
             if (jsonStats.status === 'success') {
                 document.getElementById('normal-cases').innerText = '0';
