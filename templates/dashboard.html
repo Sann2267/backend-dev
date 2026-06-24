@@ -59,12 +59,10 @@
 
 {% block scripts %}
 <script>
-    const apiKey = "LKS_LAMPUNG_2026";
-
     async function loadDashboardData() {
         try {
             // 1. Ambil Data Transaksi
-            const resTx = await fetch('/api/transactions', { headers: { 'x-api-key': apiKey } });
+            const resTx = await fetch('/api/transactions');
             const jsonTx = await resTx.json();
             
             if (jsonTx.status === 'success') {
@@ -93,7 +91,7 @@
             }
 
             // 2. Ambil Data Statistik Agregasi
-            const resStats = await fetch('/api/fraud-stats', { headers: { 'x-api-key': apiKey } });
+            const resStats = await fetch('/api/fraud-stats');
             const jsonStats = await resStats.json();
             
             if (jsonStats.status === 'success') {
