@@ -45,8 +45,7 @@ jobs:
 
   deploy-to-ec2:
     needs: build-and-push
-    runs-on: ubuntu-14.04
-
+    runs-on: ubuntu-latest
     steps:
       - name: Deploy to AWS EC2 via SSH
         uses: appleboy/ssh-action@v1.0.3
