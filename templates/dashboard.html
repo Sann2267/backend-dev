@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard Monitoring - LKS CC 2026{% endblock %}
+
+{% block content %}
+<div class="row mb-4" id="stats-container">
+    <div class="col-md-6 mb-3">
+        <div class="card bg-primary text-white card-stat h-100 shadow-sm">
+            <div class="card-body">
+                <h6 class="card-title text-uppercase opacity-75">Total Transaksi Normal</h6>
+                <h2 class="display-6 fw-bold" id="normal-cases">0</h2>
+                <p class="mb-0" id="normal-amount">Volume: Rp 0</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6 mb-3">
+        <div class="card bg-danger text-white card-stat h-100 shadow-sm">
+            <div class="card-body">
+                <h6 class="card-title text-uppercase opacity-75">🚨 Total Potensi Fraud</h6>
+                <h2 class="display-6 fw-bold" id="fraud-cases">0</h2>
+                <p class="mb-0" id="fraud-amount">Kerugian: Rp 0</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <div class="card shadow-sm">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
+                <h5 class="mb-0 fw-bold">📋 50 Transaksi Terkini dari Amazon Athena</h5>
+                <button class="btn btn-sm btn-outline-secondary" onclick="loadDashboardData()">🔄 Refresh Data</button>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover table-striped mb-0 align-middle">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>ID Transaksi</th>
+                                <th>Item</th>
+                                <th>Nominal</th>
+                                <th>Lokasi</th>
+                                <th>Status</th>
+                                <th>Alasan AI</th>
+                            </tr>
+                        </thead>
+                        <tbody id="transaction-table-body">
+                            <tr>
+                                <td colspan="6" class="text-center py-4 text-muted">Sedang menarik data dari Data Lake...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const apiKey = "LKS_LAMPUNG_2026";
+
+    async function loadDashboardData() {
+        try {
+            // 1. Ambil Data Transaksi
+            const resTx = await fetch('/api/transactions', { headers: { 'x-api-key': apiKey } });
+            const jsonTx = await resTx.json();
+            
+            if (jsonTx.status === 'success') {
+                const tbody = document.getElementById('transaction-table-body');
+                tbody.innerHTML = '';
+                
+                if(jsonTx.data.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="6" class="text-center py-4">Tidak ada data transaksi di S3.</td></tr>`;
+                }
+
+                jsonTx.data.forEach(tx => {
+                    const isFraud = tx.is_fraud === 'true' || tx.is_fraud === true;
+                    const badge = isFraud ? '<span class="badge bg-danger">FRAUD</span>' : '<span class="badge bg-success">NORMAL</span>';
+                    
+                    tbody.innerHTML += `
+                        <tr>
+                            <td class="fw-bold">${tx.transaction_id || '-'}</td>
+                            <td>${tx.item || '-'}</td>
+                            <td>Rp ${Number(tx.amount).toLocaleString('id-ID')}</td>
+                            <td>${tx.location || '-'}</td>
+                            <td>${badge}</td>
+                            <td class="text-muted small">${tx.fraud_reason || '-'}</td>
+                        </tr>
+                    `;
+                });
+            }
+
+            // 2. Ambil Data Statistik Agregasi
+            const resStats = await fetch('/api/fraud-stats', { headers: { 'x-api-key': apiKey } });
+            const jsonStats = await resStats.get_json();
+            
+            if (jsonStats.status === 'success') {
+                document.getElementById('normal-cases').innerText = '0';
+                document.getElementById('normal-amount').innerText = 'Volume: Rp 0';
+                document.getElementById('fraud-cases').innerText = '0';
+                document.getElementById('fraud-amount').innerText = 'Kerugian: Rp 0';
+
+                jsonStats.data.forEach(stat => {
+                    const isFraud = stat.is_fraud === 'true' || stat.is_fraud === true;
+                    const totalCases = stat.total_cases;
+                    const totalAmount = Number(stat.total_amount).toLocaleString('id-ID');
+
+                    if (isFraud) {
+                        document.getElementById('fraud-cases').innerText = totalCases;
+                        document.getElementById('fraud-amount').innerText = `Kerugian: Rp ${totalAmount}`;
+                    } else {
+                        document.getElementById('normal-cases').innerText = totalCases;
+                        document.getElementById('normal-amount').innerText = `Volume: Rp ${totalAmount}`;
+                    }
+                });
+            }
+        } catch (err) {
+            console.error("Gagal memuat data dashboard:", err);
+        }
+    }
+
+    window.onload = loadDashboardData;
+</script>
+{% endblock %}
