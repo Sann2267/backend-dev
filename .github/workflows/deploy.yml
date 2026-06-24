@@ -45,8 +45,7 @@ jobs:
 
   deploy-to-ec2:
     needs: build-and-push
-    runs-on: ubuntu-14.04
-
+    runs-on: ubuntu-latest
     steps:
       - name: Deploy to AWS EC2 via SSH
         uses: appleboy/ssh-action@v1.0.3
@@ -55,21 +54,21 @@ jobs:
           username: ${{ secrets.EC2_USERNAME }}
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            # Login ke GHCR di dalam mesin EC2
-            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-            
-            # Hentikan dan hapus kontainer lama jika ada
-            docker stop backend-api || true
-            docker rm backend-api || true
-            
-            # Ambil image kontainer terbaru dari GHCR
-            docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-            
-            # Jalankan kontainer baru di port 5000
-            # Kontainer otomatis mewarisi hak akses AWS Athena lewat IAM Role EC2 Instance Profile Anda
-            docker run -d \
+            # 1. Login ke GHCR menggunakan sudo
+            echo "${{ secrets.GITHUB_TOKEN }}" | sudo docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+            # 2. Hentikan dan hapus kontainer lama jika ada
+            sudo docker stop backend-api || true
+            sudo docker rm backend-api || true
+
+            # 3. Ambil image kontainer terbaru dari GHCR
+            sudo docker pull ghcr.io/sann2267/backend-dev:latest
+
+            # 4. Jalankan kontainer baru dengan memecah argumen ke bawah secara aman
+            sudo docker run -d \
               -p 80:5000 \
               --name backend-api \
               --restart always \
               -e AWS_DEFAULT_REGION=ap-southeast-2 \
-              ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+              -e GROQ_API_KEY="${{ secrets.GROQ_API_KEY }}" \
+              ghcr.io/sann2267/backend-dev:latest
