@@ -54,23 +54,21 @@ jobs:
           username: ${{ secrets.EC2_USERNAME }}
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            # 1. Definisikan nama repositori dalam huruf kecil secara manual agar Docker tidak protes
-            IMAGE_REPO="ghcr.io/sann2267/backend-dev:latest"
-            
-            # 2. Login ke GHCR menggunakan sudo
+            # 1. Login ke GHCR menggunakan sudo
             echo "${{ secrets.GITHUB_TOKEN }}" | sudo docker login ghcr.io -u ${{ github.actor }} --password-stdin
             
-            # 3. Hentikan dan hapus kontainer lama jika ada
+            # 2. Hentikan dan hapus kontainer lama jika ada
             sudo docker stop backend-api || true
             sudo docker rm backend-api || true
             
-            # 4. Ambil image kontainer terbaru dari GHCR
-            sudo docker pull $IMAGE_REPO
+            # 3. Ambil image kontainer terbaru dari GHCR
+            sudo docker pull ghcr.io/sann2267/backend-dev:latest
             
-            # 5. Jalankan kontainer baru di port 80 (Akses Publik)
+            # 4. Jalankan kontainer baru di port 80 (Akses Publik)
+            # Kita langsung tulis alamat image-nya secara eksplisit tanpa variabel string bash
             sudo docker run -d \
               -p 80:5000 \
               --name backend-api \
               --restart always \
               -e AWS_DEFAULT_REGION=ap-southeast-2 \
-              $IMAGE_REPO.IMAGE_NAME }}:latest
+              ghcr.io/sann2267/backend-dev:latest
