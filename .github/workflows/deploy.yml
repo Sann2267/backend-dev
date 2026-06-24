@@ -1,0 +1,75 @@
+name: Deploy Dashboard Application to EC2 via GHCR
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry (GHCR)
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract Metadata for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=latest
+
+      - name: Build and Push Docker Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+  deploy-to-ec2:
+    needs: build-and-push
+    runs-on: ubuntu-14.04
+
+    steps:
+      - name: Deploy to AWS EC2 via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ 52.63.34.104 }}
+          username: ${{ ubuntu }}
+          key: ${{ MIIEpAIBAAKCAQEAzCWGArWyVSwoeftkwJ2b/yKOdlGwPb3UiIYF989N0KOShYFibI8OWysTHvTv8Ikcj3e+FhtUohhGywyt+2JJuZ3YeT4Qm8HusOlPENqPcv2M+4bFzTpgqU9dsaZdjAhqF2fc8s95UPq6gnH/94XdFJQN5C5KpFg4UYN3EgEw8iOOb4IsHaeEMALzipje1mBvEyjQMc+Axpgl53MG50s1CJyBj0YeXlUOqwjgFtma8SChBm2GwbWxKQnxdxfdtRbQ58r9BdZuT9udufJmvuxmJ5G7uD5tGshjJms2o3772ptGAE/QQxCzNv0TUkSO1uMNl+WLIlclC0dFmQI6iI7n6wIDAQABAoIBAQC7FSwhcZeTPFt/piWn6wgZoPaDccscWcnar0/q0JzUNgLBvFeReuxCGlB0jy0P9ucohyi5I6TEw5Ck5eLPPDyqEQBf48PeqbPvhnAB1vmc/MVlgBXnRLdukaAgfIDAIrnu5yzxi7b2wj+H6acUlCWNhTzRvqaCw6Ig+WR2KIdNbilA+5+rW+PqlRcg4Vhl78wRxyy4zHFKM+gArAE9qoBB2ccpxlBR1HVv5j0oVXpgcblzt07QWFzUDRnHbEzXnNt9SnINfB5n2A16fiikCAe3cp5MnQ6J2V3b8iccGDD1lahelC5LZd+i8nRob3Z2Hjlz+lUJzDet+gFD/F/owOeRAoGBAPxFbQiZNJyx8K1bn+SCRxCOLfxaaeEd+fY4MOloJDKpzcTD4ClsUEoUW73ZO7s52mLhBODVMo6olUH1TU458RCgCYLQsiC1dK/sktEEJaPF1XB9auorVMyf0g9d+svOKrC59IO+sTkFFawyHP3GfxReIz5p9GtidZ3exaQN9EVZAoGBAM8p/3LP8YQCL9B4mb18F9OAKYMj20awhQuZrE1ohzwmpSGjWJStQMhNznDEDW2pMwLLJcsQdhHNzHjTYzG+zYEvvtq/qbpEPiGiyMYPnSVVRl6KxY0cO8WpxJRKtO7hbKyzTIRlSk9KJOvvr76htUplI5ynZgoWVyEZ/HatEXrjAoGAPcrvszx706oObxhTaRC0QYziHL800iyajsIi0PlubG6FdZ4ZKWxbmlm0QyOT6v93y+KcZEo0sRcAQIDKp8+vicf5rG5cQ4DPDUyghcxDQAN0jbJa3vMwOVMojBUUGpnsgQ97ok2ycWoabex0h4D4nc+VSHOBqFAcyUfJF69HVzkCgYEArBbeLdjRbvCGGa5lQAOao0YeteKOX7149/bzK+Z+GJidqkDP78mwO/RuXjxuTz8zsclhnrsQ6Z9EkMZA62ztt7ga2gpHCwVve2+HSwhjaUTaTOUIUD045e0t8GXSwXGfXiMfmAewYAdefmPAYSJhv+geWh6w5AZE4Kl+kHMaRzMCgYBeyB4lpDvAVmFvSUz17cSy8KJAbq0Pituj9Pa7mh1zPIyiQsxvmWFXwVyIEZgIbEbxkOUgwJ6Pphy+rJdjtFr4A+RAr/gKCYc8iJyQXbG+rEEQWUUsfB90ri/Fg2BabxhGeChwq6QdR0g5NH1mw4Zm+qPx1ryqV4t4VKL17Zn1Ig== }}        # Isi dari file .pem Anda
+          script: |
+            # Login ke GHCR di dalam mesin EC2
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            
+            # Hentikan dan hapus kontainer lama jika ada
+            docker stop backend-api || true
+            docker rm backend-api || true
+            
+            # Ambil image kontainer terbaru dari GHCR
+            docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+            
+            # Jalankan kontainer baru di port 5000
+            # Kontainer otomatis mewarisi hak akses AWS Athena lewat IAM Role EC2 Instance Profile Anda
+            docker run -d \
+              -p 80:5000 \
+              --name backend-api \
+              --restart always \
+              -e AWS_DEFAULT_REGION=ap-southeast-2 \
+              ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
