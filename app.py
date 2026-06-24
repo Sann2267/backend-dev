@@ -63,7 +63,7 @@ def dapatkan_analisis_groq(item, amount, location):
         prompt = f"Analisis singkat transaksi mencurigakan: {item}, Rp {amount}, Lokasi: {location}."
         chat_completion = groq_client.chat.completions.create(
             messages=[{"role": "user", "content": prompt}],
-            model="llama3-8b-8192",
+            model="llama-3.1-8b-instant",
             max_tokens=20,
             temperature=0.2
         )
@@ -85,8 +85,8 @@ def get_all_transactions():
         
         for tx in data:
             is_fraud = tx.get('is_fraud') == 'true' or tx.get('is_fraud') == True
-            if is_fraud and (not tx.get('reason') or tx.get('reason') == '-'):
-                tx['reason'] = dapatkan_analisis_groq(
+            if is_fraud and (not tx.get('fraud_reason') or tx.get('fraud_reason') == '-'):
+                tx['fraud_reason'] = dapatkan_analisis_groq(
                     tx.get('item', '-'), 
                     tx.get('amount', '0'), 
                     tx.get('location', '-')
