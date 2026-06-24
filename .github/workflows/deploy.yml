@@ -71,4 +71,5 @@ jobs:
               --restart always \
               -e AWS_DEFAULT_REGION=ap-southeast-2 \
               -e GROQ_API_KEY="${{ secrets.GROQ_API_KEY }}" \
-              ghcr.io/sann2267/backend-dev:latest
+              ghcr.io/sann2267/backend-dev:latest \
+              gunicorn --bind 0.0.0.0:5000 --workers 2 --threads 4 --timeout 60 app:app
