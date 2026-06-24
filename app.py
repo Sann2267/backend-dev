@@ -60,11 +60,15 @@ def dapatkan_analisis_groq(item, amount, location):
     if not groq_client:
         return "Analisis AI dilewati: GROQ Key belum dikonfigurasi"
     try:
-        prompt = f"Analisis singkat transaksi mencurigakan: {item}, Rp {amount}, Lokasi: {location}."
+        prompt = (
+            f"Item: {item}, Nominal: Rp {amount}, Lokasi: {location}. "
+            "Berikan HANYA alasan singkat (maks 10 kata) mengapa transaksi ini mencurigakan. "
+            "Jangan gunakan markdown, jangan tambahkan pengantar apapun. Langsung tulis alasannya."
+        )
         chat_completion = groq_client.chat.completions.create(
             messages=[{"role": "user", "content": prompt}],
             model="llama-3.1-8b-instant",
-            max_tokens=20,
+            max_tokens=30,
             temperature=0.2
         )
         return chat_completion.choices[0].message.content.strip()
